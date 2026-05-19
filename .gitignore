@@ -9,3 +9,5 @@ dist/
 build/
 .pytest_cache/
 *.pt
+docs/
+
