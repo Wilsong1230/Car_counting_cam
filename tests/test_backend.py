@@ -69,3 +69,19 @@ def test_post_event_sequential_ids(client):
 def test_post_event_missing_field_returns_422(client):
     resp = client.post("/events", json={"track_id": 1})
     assert resp.status_code == 422
+
+
+def test_counts_current_empty(client):
+    resp = client.get("/counts/current")
+    assert resp.status_code == 200
+    assert resp.json() == {"in": 0, "out": 0}
+
+
+def test_counts_current_with_data(client):
+    for _ in range(3):
+        client.post("/events", json=VALID_PAYLOAD)
+    out_payload = {**VALID_PAYLOAD, "direction": "out"}
+    for _ in range(2):
+        client.post("/events", json=out_payload)
+    resp = client.get("/counts/current")
+    assert resp.json() == {"in": 3, "out": 2}

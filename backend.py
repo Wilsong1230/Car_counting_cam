@@ -85,7 +85,13 @@ def post_event(payload: EventPayload, db: sqlite3.Connection = Depends(get_db)):
 
 @app.get("/counts/current")
 def counts_current(db: sqlite3.Connection = Depends(get_db)):
-    pass
+    rows = db.execute(
+        "SELECT direction, COUNT(*) as cnt FROM crossings GROUP BY direction"
+    ).fetchall()
+    totals = {"in": 0, "out": 0}
+    for row in rows:
+        totals[row["direction"]] = row["cnt"]
+    return totals
 
 
 @app.get("/counts/hourly")
