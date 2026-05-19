@@ -39,7 +39,11 @@ def get_db():
 
 
 def parse_args(argv=None):
-    pass
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--host", type=str, default="0.0.0.0")
+    parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument("--db", type=str, default="vehicles.db")
+    return parser.parse_args(argv)
 
 
 class BBox(BaseModel):

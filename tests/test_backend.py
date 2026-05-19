@@ -155,3 +155,17 @@ def test_counts_breakdown_empty(client):
     resp = client.get("/counts/breakdown")
     assert resp.status_code == 200
     assert resp.json() == []
+
+
+def test_parse_args_defaults():
+    args = parse_args([])
+    assert args.host == "0.0.0.0"
+    assert args.port == 8000
+    assert args.db == "vehicles.db"
+
+
+def test_parse_args_custom():
+    args = parse_args(["--host", "127.0.0.1", "--port", "9000", "--db", "custom.db"])
+    assert args.host == "127.0.0.1"
+    assert args.port == 9000
+    assert args.db == "custom.db"
