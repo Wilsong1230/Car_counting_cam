@@ -121,7 +121,25 @@ def counts_hourly(date: str | None = None, db: sqlite3.Connection = Depends(get_
 
 @app.get("/counts/daily")
 def counts_daily(days: int = 7, db: sqlite3.Connection = Depends(get_db)):
-    pass
+    rows = db.execute(
+        """
+        SELECT date(timestamp) as day,
+               direction,
+               COUNT(*) as cnt
+        FROM crossings
+        WHERE date(timestamp) >= date('now', '-' || ? || ' days')
+        GROUP BY day, direction
+        ORDER BY day
+        """,
+        (days - 1,),
+    ).fetchall()
+    by_day: dict = {}
+    for row in rows:
+        d = row["day"]
+        if d not in by_day:
+            by_day[d] = {"date": d, "in": 0, "out": 0}
+        by_day[d][row["direction"]] = row["cnt"]
+    return list(by_day.values())
 
 
 @app.get("/counts/breakdown")

@@ -110,3 +110,26 @@ def test_counts_hourly_filters_by_date(client):
     data = resp.json()
     assert len(data) == 1
     assert data[0]["hour"].startswith("2026-05-19")
+
+
+def test_counts_daily_groups_by_date(client):
+    may18 = {**VALID_PAYLOAD, "timestamp": "2026-05-18T10:00:00.000000+00:00"}
+    may19 = {**VALID_PAYLOAD, "timestamp": "2026-05-19T10:00:00.000000+00:00"}
+    client.post("/events", json=may18)
+    client.post("/events", json=may18)
+    client.post("/events", json=may19)
+    resp = client.get("/counts/daily?days=30")
+    assert resp.status_code == 200
+    data = {item["date"]: item for item in resp.json()}
+    assert data["2026-05-18"]["in"] == 2
+    assert data["2026-05-19"]["in"] == 1
+
+
+def test_counts_daily_respects_days_filter(client, mem_conn):
+    old = {**VALID_PAYLOAD, "timestamp": "2020-01-01T10:00:00.000000+00:00"}
+    recent = {**VALID_PAYLOAD, "timestamp": "2026-05-19T10:00:00.000000+00:00"}
+    client.post("/events", json=old)
+    client.post("/events", json=recent)
+    resp = client.get("/counts/daily?days=7")
+    dates = [item["date"] for item in resp.json()]
+    assert "2020-01-01" not in dates
