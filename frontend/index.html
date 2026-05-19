@@ -704,6 +704,16 @@
       color: var(--green);
     }
 
+    .pip.dragging {
+      transition: none;
+      opacity: .9;
+      cursor: grabbing;
+    }
+
+    .pip:not(.dragging) {
+      cursor: grab;
+    }
+
     @media (max-width: 768px) {
       .pip { width: 200px; bottom: 16px; right: 16px; }
     }
@@ -1421,6 +1431,43 @@
       btn.disabled = false;
     }
   }
+
+  /* ── PIP drag ──────────────────────────────────────────────── */
+  (function () {
+    const pip = $('pip');
+    let dragging = false, ox = 0, oy = 0;
+
+    function startDrag(clientX, clientY) {
+      const r = pip.getBoundingClientRect();
+      ox = clientX - r.left;
+      oy = clientY - r.top;
+      dragging = true;
+      pip.classList.add('dragging');
+      pip.style.right  = 'auto';
+      pip.style.bottom = 'auto';
+    }
+
+    function moveDrag(clientX, clientY) {
+      if (!dragging) return;
+      const maxX = window.innerWidth  - pip.offsetWidth;
+      const maxY = window.innerHeight - pip.offsetHeight;
+      pip.style.left = Math.min(Math.max(clientX - ox, 0), maxX) + 'px';
+      pip.style.top  = Math.min(Math.max(clientY - oy, 0), maxY) + 'px';
+    }
+
+    function endDrag() {
+      dragging = false;
+      pip.classList.remove('dragging');
+    }
+
+    pip.addEventListener('mousedown',  e => { e.preventDefault(); startDrag(e.clientX, e.clientY); });
+    document.addEventListener('mousemove', e => moveDrag(e.clientX, e.clientY));
+    document.addEventListener('mouseup',   endDrag);
+
+    pip.addEventListener('touchstart', e => { const t = e.touches[0]; startDrag(t.clientX, t.clientY); }, { passive: true });
+    document.addEventListener('touchmove',  e => { if (!dragging) return; e.preventDefault(); const t = e.touches[0]; moveDrag(t.clientX, t.clientY); }, { passive: false });
+    document.addEventListener('touchend',   endDrag);
+  })();
 
   /* ── PIP feed polling ──────────────────────────────────────── */
   let _feedOnline  = false;
