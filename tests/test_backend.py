@@ -85,3 +85,28 @@ def test_counts_current_with_data(client):
         client.post("/events", json=out_payload)
     resp = client.get("/counts/current")
     assert resp.json() == {"in": 3, "out": 2}
+
+
+def test_counts_hourly_groups_by_hour(client):
+    hour14 = {**VALID_PAYLOAD, "timestamp": "2026-05-19T14:30:00.000000+00:00"}
+    hour15 = {**VALID_PAYLOAD, "timestamp": "2026-05-19T15:10:00.000000+00:00"}
+    client.post("/events", json=hour14)
+    client.post("/events", json=hour14)
+    client.post("/events", json=hour15)
+    resp = client.get("/counts/hourly?date=2026-05-19")
+    data = resp.json()
+    assert resp.status_code == 200
+    hours = {item["hour"]: item for item in data}
+    assert hours["2026-05-19T14:00:00Z"]["in"] == 2
+    assert hours["2026-05-19T15:00:00Z"]["in"] == 1
+
+
+def test_counts_hourly_filters_by_date(client):
+    may18 = {**VALID_PAYLOAD, "timestamp": "2026-05-18T10:00:00.000000+00:00"}
+    may19 = {**VALID_PAYLOAD, "timestamp": "2026-05-19T10:00:00.000000+00:00"}
+    client.post("/events", json=may18)
+    client.post("/events", json=may19)
+    resp = client.get("/counts/hourly?date=2026-05-19")
+    data = resp.json()
+    assert len(data) == 1
+    assert data[0]["hour"].startswith("2026-05-19")

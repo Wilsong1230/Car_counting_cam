@@ -96,7 +96,27 @@ def counts_current(db: sqlite3.Connection = Depends(get_db)):
 
 @app.get("/counts/hourly")
 def counts_hourly(date: str | None = None, db: sqlite3.Connection = Depends(get_db)):
-    pass
+    if date is None:
+        date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    rows = db.execute(
+        """
+        SELECT strftime('%Y-%m-%dT%H:00:00Z', timestamp) as hour,
+               direction,
+               COUNT(*) as cnt
+        FROM crossings
+        WHERE date(timestamp) = ?
+        GROUP BY hour, direction
+        ORDER BY hour
+        """,
+        (date,),
+    ).fetchall()
+    by_hour: dict = {}
+    for row in rows:
+        h = row["hour"]
+        if h not in by_hour:
+            by_hour[h] = {"hour": h, "in": 0, "out": 0}
+        by_hour[h][row["direction"]] = row["cnt"]
+    return list(by_hour.values())
 
 
 @app.get("/counts/daily")
