@@ -61,7 +61,52 @@ def post_event(url, payload):
 
 
 def run_detection(args):
-    pass
+    model = YOLO("yolov8n.pt")
+    cap = cv2.VideoCapture(args.camera)
+    if not cap.isOpened():
+        sys.exit(f"Error: cannot open camera {args.camera}")
+
+    prev_cy = {}
+
+    try:
+        while True:
+            ok, frame = cap.read()
+            if not ok:
+                continue
+
+            h, w = frame.shape[:2]
+            line_y_px = int(args.line_y * h)
+
+            results = model.track(frame, tracker="bytetrack.yaml", persist=True, verbose=False)
+
+            if results[0].boxes is not None and results[0].boxes.id is not None:
+                boxes = results[0].boxes
+                for i in range(len(boxes)):
+                    cls_id = int(boxes.cls[i])
+                    if cls_id not in VEHICLE_CLASSES:
+                        continue
+                    track_id = int(boxes.id[i])
+                    x1, y1, x2, y2 = boxes.xyxy[i].tolist()
+                    cy = (y1 + y2) / 2
+                    conf = float(boxes.conf[i])
+                    class_name = VEHICLE_CLASSES[cls_id]
+
+                    direction = check_crossing(prev_cy, track_id, cy, line_y_px)
+                    if direction:
+                        payload = build_payload(track_id, class_name, direction, (x1, y1, x2, y2), conf)
+                        post_event(args.backend_url, payload)
+
+            if args.show:
+                cv2.line(frame, (0, line_y_px), (w, line_y_px), (0, 255, 0), 2)
+                cv2.imshow("detector", frame)
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    break
+    except KeyboardInterrupt:
+        pass
+    finally:
+        cap.release()
+        if args.show:
+            cv2.destroyAllWindows()
 
 
 if __name__ == "__main__":

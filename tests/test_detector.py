@@ -95,3 +95,14 @@ def test_post_event_logs_on_failure(capsys):
         time.sleep(0.1)
         captured = capsys.readouterr()
         assert "POST failed" in captured.err
+
+
+def test_run_detection_exits_if_camera_fails(monkeypatch):
+    monkeypatch.setattr(detector, "YOLO", lambda _: MagicMock())
+    mock_cap = MagicMock()
+    mock_cap.isOpened.return_value = False
+    monkeypatch.setattr(detector.cv2, "VideoCapture", lambda _: mock_cap)
+    args = detector.parse_args(["--camera", "99"])
+    with pytest.raises(SystemExit) as exc_info:
+        detector.run_detection(args)
+    assert "99" in str(exc_info.value)
