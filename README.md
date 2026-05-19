@@ -9,6 +9,7 @@ A real-time vehicle detection and counting system that uses your camera feed, a 
 - Watches a live camera feed and detects vehicles crossing a virtual line
 - Tracks cars, motorcycles, buses, and trucks separately
 - Records every crossing (direction, class, confidence) to a local database
+- Streams an annotated live feed to a draggable picture-in-picture overlay in the dashboard
 - Serves a live dashboard you can open in any browser
 
 ---
@@ -16,12 +17,12 @@ A real-time vehicle detection and counting system that uses your camera feed, a 
 ## How it works
 
 ```
-Camera → detector.py → POST /events → backend.py → vehicles.db
-                                                        ↓
+Camera → detector.py → POST /events  → backend.py → vehicles.db
+                    └→ POST /frame  ↗               ↓
                                               frontend/index.html
 ```
 
-`detector.py` reads the camera, runs YOLOv8 tracking, and fires an event to the backend every time a vehicle crosses the line. `backend.py` stores it and exposes a handful of read endpoints the dashboard polls every 2 seconds.
+`detector.py` reads the camera, runs YOLOv8 tracking, and fires an event to the backend every time a vehicle crosses the line. It also encodes each annotated frame as a JPEG and POSTs it to `/frame`. `backend.py` stores crossings, exposes read endpoints the dashboard polls every 2 seconds, and serves the latest frame via `/snapshot` for the live feed overlay.
 
 ---
 
@@ -48,7 +49,7 @@ Optional flags:
 --camera 0          which camera to use (default: 0)
 --line-y 0.5        where to draw the counting line, as a fraction of frame height (default: 0.5)
 --backend-url ...   backend events endpoint (default: http://localhost:8000/events)
---show              show the live annotated camera feed
+--show              also open a local OpenCV window with the annotated feed
 ```
 
 **4. Open the dashboard**
@@ -61,7 +62,7 @@ Just open `frontend/index.html` in your browser. No server needed for the fronte
 
 | Page | What you see |
 |------|-------------|
-| **Overview** | KPI counters, hourly In vs Out chart, direction split, class breakdown donut |
+| **Overview** | KPI counters, hourly In vs Out chart, direction split, class breakdown donut, draggable live feed PIP |
 | **Hourly** | Individual line charts per vehicle class over the last 12 hours |
 | **Classes** | Specs for each detectable vehicle class (COCO IDs, thresholds, dimensions) |
 
@@ -72,6 +73,8 @@ Just open `frontend/index.html` in your browser. No server needed for the fronte
 | Endpoint | Description |
 |----------|-------------|
 | `POST /events` | Ingest a crossing event from the detector |
+| `POST /frame` | Push the latest annotated JPEG frame |
+| `GET /snapshot` | Fetch the latest JPEG frame (used by the dashboard PIP) |
 | `GET /counts/current` | Total in/out counts all time |
 | `GET /counts/hourly` | Hourly in/out counts for today |
 | `GET /counts/hourly/breakdown` | Hourly counts broken down by vehicle class |
