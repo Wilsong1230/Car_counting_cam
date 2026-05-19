@@ -1,5 +1,4 @@
 import argparse
-import asyncio
 import sqlite3
 from datetime import datetime, timezone
 from typing import Literal
@@ -7,7 +6,6 @@ from typing import Literal
 import uvicorn
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 app = FastAPI()
@@ -215,20 +213,12 @@ async def post_frame(request: Request):
     _latest_frame = await request.body()
 
 
-async def _mjpeg_generator():
-    while True:
-        frame = _latest_frame
-        if frame:
-            yield b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + frame + b"\r\n"
-        await asyncio.sleep(0.04)
-
-
-@app.get("/feed")
-async def live_feed():
-    return StreamingResponse(
-        _mjpeg_generator(),
-        media_type="multipart/x-mixed-replace; boundary=frame",
-    )
+@app.get("/snapshot")
+async def snapshot():
+    if _latest_frame is None:
+        return StreamingResponse(iter([]), status_code=503)
+    from fastapi.responses import Response
+    return Response(_latest_frame, media_type="image/jpeg")
 
 
 if __name__ == "__main__":

@@ -789,15 +789,11 @@
           <div class="panel-title">Live Feed</div>
           <div class="panel-subtitle" id="feed-status">connecting...</div>
         </div>
-        <span class="panel-badge badge-blue" id="feed-badge">MJPEG</span>
+        <span class="panel-badge badge-blue" id="feed-badge">~10 fps</span>
       </div>
       <div class="feed-wrap">
-        <img id="live-feed"
-             src="http://localhost:8000/feed"
-             alt="Live camera feed"
-             onload="feedOnline()"
-             onerror="feedOffline()" />
-        <div id="feed-offline" class="feed-offline" aria-live="polite">
+        <img id="live-feed" alt="Live camera feed" style="display:none" />
+        <div id="feed-offline" class="feed-offline visible" aria-live="polite">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.5 6.5A5 5 0 0 1 17.5 13.5"/><path d="M6.5 6.5A9 9 0 0 0 17.5 17.5"/><circle cx="12" cy="12" r="1"/></svg>
           <span>Feed offline — start the detector to see the live view</span>
         </div>
@@ -1404,27 +1400,47 @@
     }
   }
 
-  /* ── Live feed state ───────────────────────────────────────── */
-  function feedOnline() {
-    $('feed-offline').classList.remove('visible');
-    $('live-feed').style.display = 'block';
-    $('feed-status').textContent = 'Live';
-    $('feed-badge').textContent  = 'LIVE';
-    $('feed-badge').className    = 'panel-badge badge-green';
-  }
+  /* ── Live feed polling ─────────────────────────────────────── */
+  let _feedOnline = false;
+  let _feedTimer  = null;
+  let _prevBlobUrl = null;
 
-  function feedOffline() {
-    $('feed-offline').classList.add('visible');
-    $('live-feed').style.display = 'none';
-    $('feed-status').textContent = 'Offline';
-    $('feed-badge').textContent  = 'OFFLINE';
-    $('feed-badge').className    = 'panel-badge badge-red';
-    setTimeout(() => {
-      $('live-feed').src = API + '/feed?' + Date.now();
-    }, 3000);
+  async function pollFeed() {
+    try {
+      const res = await fetch(API + '/snapshot', { signal: AbortSignal.timeout(1500) });
+      if (!res.ok) throw new Error('no frame');
+
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const img  = $('live-feed');
+      img.src = url;
+      img.style.display = 'block';
+      if (_prevBlobUrl) URL.revokeObjectURL(_prevBlobUrl);
+      _prevBlobUrl = url;
+
+      if (!_feedOnline) {
+        _feedOnline = true;
+        $('feed-offline').classList.remove('visible');
+        $('feed-status').textContent = 'Live';
+        $('feed-badge').textContent  = 'LIVE';
+        $('feed-badge').className    = 'panel-badge badge-green';
+      }
+      _feedTimer = setTimeout(pollFeed, 100);
+    } catch {
+      if (_feedOnline) {
+        _feedOnline = false;
+        $('live-feed').style.display = 'none';
+        $('feed-offline').classList.add('visible');
+        $('feed-status').textContent = 'Offline';
+        $('feed-badge').textContent  = 'OFFLINE';
+        $('feed-badge').className    = 'panel-badge badge-red';
+      }
+      _feedTimer = setTimeout(pollFeed, 2000);
+    }
   }
 
   /* ── Boot ──────────────────────────────────────────────────── */
+  pollFeed();
   buildHourlyChart();
   buildDirectionChart();
   buildClassChart();
