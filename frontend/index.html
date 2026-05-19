@@ -637,44 +637,75 @@
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ── Live feed ───────────────────────────────────────────── */
-    .feed-wrap {
-      position: relative;
-      width: 100%;
-      border-radius: var(--radius-sm);
+    /* ── PIP camera feed ─────────────────────────────────────── */
+    .pip {
+      position: fixed;
+      bottom: 28px;
+      right: 28px;
+      width: 260px;
+      border-radius: 12px;
       overflow: hidden;
       background: #000;
-      min-height: 200px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+      border: 1.5px solid rgba(59,130,246,.35);
+      box-shadow: 0 8px 32px rgba(0,0,0,.7), 0 0 0 1px rgba(59,130,246,.1);
+      z-index: 90;
+      opacity: 0;
+      transform: translateY(8px) scale(.97);
+      transition: opacity 300ms ease, transform 300ms ease;
+      pointer-events: none;
     }
 
-    #live-feed {
+    .pip.online {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+      pointer-events: auto;
+    }
+
+    .pip img {
       display: block;
       width: 100%;
       height: auto;
-      border-radius: var(--radius-sm);
     }
 
-    .feed-offline {
-      display: none;
+    .pip-bar {
       position: absolute;
-      inset: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 6px 10px;
+      background: linear-gradient(transparent, rgba(0,0,0,.75));
+      display: flex;
       align-items: center;
-      justify-content: center;
-      gap: 10px;
-      color: var(--muted);
-      font-size: .78rem;
-      font-family: var(--font-data);
-      background: var(--surface-2);
-      flex-direction: column;
-      text-align: center;
-      padding: 24px;
+      gap: 6px;
     }
 
-    .feed-offline.visible {
-      display: flex;
+    .pip-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .pip.online .pip-dot {
+      background: var(--green);
+      animation: pulse-ring 2s cubic-bezier(0.4,0,.6,1) infinite;
+    }
+
+    .pip-label {
+      font-size: .6rem;
+      font-family: var(--font-data);
+      font-weight: 600;
+      letter-spacing: .08em;
+      color: rgba(255,255,255,.7);
+    }
+
+    .pip.online .pip-label {
+      color: var(--green);
+    }
+
+    @media (max-width: 768px) {
+      .pip { width: 160px; bottom: 16px; right: 16px; }
     }
 
     /* ── Side accent bars ────────────────────────────────────── */
@@ -781,24 +812,6 @@
         <span class="kpi-sub" aria-hidden="true">all time</span>
       </div>
     </section>
-
-    <!-- Live camera feed -->
-    <div class="chart-panel full">
-      <div class="panel-header">
-        <div>
-          <div class="panel-title">Live Feed</div>
-          <div class="panel-subtitle" id="feed-status">connecting...</div>
-        </div>
-        <span class="panel-badge badge-blue" id="feed-badge">~10 fps</span>
-      </div>
-      <div class="feed-wrap">
-        <img id="live-feed" alt="Live camera feed" style="display:none" />
-        <div id="feed-offline" class="feed-offline visible" aria-live="polite">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.5 6.5A5 5 0 0 1 17.5 13.5"/><path d="M6.5 6.5A9 9 0 0 0 17.5 17.5"/><circle cx="12" cy="12" r="1"/></svg>
-          <span>Feed offline — start the detector to see the live view</span>
-        </div>
-      </div>
-    </div>
 
     <!-- Hourly In vs Out area chart (full width) -->
     <div class="chart-panel full">
@@ -1012,6 +1025,15 @@
     </div>
   </div>
 </footer>
+
+<!-- Picture-in-picture feed -->
+<div id="pip" class="pip" aria-label="Live camera feed">
+  <img id="live-feed" alt="Live camera feed" />
+  <div class="pip-bar">
+    <span class="pip-dot" id="pip-dot"></span>
+    <span class="pip-label" id="pip-label">CONNECTING</span>
+  </div>
+</div>
 
 <script>
   const API = 'http://localhost:8000';
@@ -1400,9 +1422,8 @@
     }
   }
 
-  /* ── Live feed polling ─────────────────────────────────────── */
-  let _feedOnline = false;
-  let _feedTimer  = null;
+  /* ── PIP feed polling ──────────────────────────────────────── */
+  let _feedOnline  = false;
   let _prevBlobUrl = null;
 
   async function pollFeed() {
@@ -1412,30 +1433,23 @@
 
       const blob = await res.blob();
       const url  = URL.createObjectURL(blob);
-      const img  = $('live-feed');
-      img.src = url;
-      img.style.display = 'block';
+      $('live-feed').src = url;
       if (_prevBlobUrl) URL.revokeObjectURL(_prevBlobUrl);
       _prevBlobUrl = url;
 
       if (!_feedOnline) {
         _feedOnline = true;
-        $('feed-offline').classList.remove('visible');
-        $('feed-status').textContent = 'Live';
-        $('feed-badge').textContent  = 'LIVE';
-        $('feed-badge').className    = 'panel-badge badge-green';
+        $('pip').classList.add('online');
+        $('pip-label').textContent = 'LIVE';
       }
-      _feedTimer = setTimeout(pollFeed, 100);
+      setTimeout(pollFeed, 100);
     } catch {
       if (_feedOnline) {
         _feedOnline = false;
-        $('live-feed').style.display = 'none';
-        $('feed-offline').classList.add('visible');
-        $('feed-status').textContent = 'Offline';
-        $('feed-badge').textContent  = 'OFFLINE';
-        $('feed-badge').className    = 'panel-badge badge-red';
+        $('pip').classList.remove('online');
+        $('pip-label').textContent = 'OFFLINE';
       }
-      _feedTimer = setTimeout(pollFeed, 2000);
+      setTimeout(pollFeed, 2000);
     }
   }
 
