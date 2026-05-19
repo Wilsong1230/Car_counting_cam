@@ -48,11 +48,16 @@ def build_payload(track_id, class_name, direction, bbox, confidence):
 
 
 def _do_post(url, payload):
-    pass
+    try:
+        resp = requests.post(url, json=payload, timeout=3)
+        resp.raise_for_status()
+    except Exception as e:
+        print(f"POST failed: {e}", file=sys.stderr)
 
 
 def post_event(url, payload):
-    pass
+    t = threading.Thread(target=_do_post, args=(url, payload), daemon=True)
+    t.start()
 
 
 def run_detection(args):

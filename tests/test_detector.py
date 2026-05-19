@@ -74,3 +74,24 @@ def test_build_payload_coerces_types():
     assert isinstance(payload["track_id"], int)
     assert isinstance(payload["bbox"]["x1"], int)
     assert isinstance(payload["confidence"], float)
+
+
+def test_post_event_calls_requests_post():
+    with patch("detector.requests.post") as mock_post:
+        mock_post.return_value.raise_for_status.return_value = None
+        detector.post_event("http://localhost/events", {"key": "val"})
+        time.sleep(0.1)
+        mock_post.assert_called_once_with(
+            "http://localhost/events",
+            json={"key": "val"},
+            timeout=3,
+        )
+
+
+def test_post_event_logs_on_failure(capsys):
+    with patch("detector.requests.post") as mock_post:
+        mock_post.side_effect = Exception("connection refused")
+        detector.post_event("http://localhost/events", {})
+        time.sleep(0.1)
+        captured = capsys.readouterr()
+        assert "POST failed" in captured.err
