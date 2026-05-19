@@ -25,3 +25,47 @@ def test_init_db_has_correct_columns():
         "confidence", "bbox_x1", "bbox_y1", "bbox_x2", "bbox_y2",
     }
     conn.close()
+
+
+@pytest.fixture
+def mem_conn():
+    conn = init_db(":memory:")
+    yield conn
+    conn.close()
+
+
+@pytest.fixture
+def client(mem_conn):
+    def override():
+        yield mem_conn
+
+    app.dependency_overrides[get_db] = override
+    yield TestClient(app)
+    app.dependency_overrides.clear()
+
+
+VALID_PAYLOAD = {
+    "timestamp": "2026-05-19T14:23:01.123456+00:00",
+    "track_id": 42,
+    "class_name": "car",
+    "direction": "in",
+    "bbox": {"x1": 10, "y1": 20, "x2": 30, "y2": 40},
+    "confidence": 0.8765,
+}
+
+
+def test_post_event_returns_201_with_id(client):
+    resp = client.post("/events", json=VALID_PAYLOAD)
+    assert resp.status_code == 201
+    assert resp.json()["id"] == 1
+
+
+def test_post_event_sequential_ids(client):
+    r1 = client.post("/events", json=VALID_PAYLOAD)
+    r2 = client.post("/events", json=VALID_PAYLOAD)
+    assert r2.json()["id"] == r1.json()["id"] + 1
+
+
+def test_post_event_missing_field_returns_422(client):
+    resp = client.post("/events", json={"track_id": 1})
+    assert resp.status_code == 422

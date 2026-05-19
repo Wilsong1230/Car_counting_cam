@@ -60,7 +60,27 @@ class EventPayload(BaseModel):
 
 @app.post("/events", status_code=201)
 def post_event(payload: EventPayload, db: sqlite3.Connection = Depends(get_db)):
-    pass
+    cursor = db.execute(
+        """
+        INSERT INTO crossings
+            (timestamp, track_id, class_name, direction, confidence,
+             bbox_x1, bbox_y1, bbox_x2, bbox_y2)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            payload.timestamp,
+            payload.track_id,
+            payload.class_name,
+            payload.direction,
+            payload.confidence,
+            payload.bbox.x1,
+            payload.bbox.y1,
+            payload.bbox.x2,
+            payload.bbox.y2,
+        ),
+    )
+    db.commit()
+    return {"id": cursor.lastrowid}
 
 
 @app.get("/counts/current")
