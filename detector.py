@@ -32,7 +32,19 @@ def check_crossing(prev_cy, track_id, cy, line_y_px):
 
 
 def build_payload(track_id, class_name, direction, bbox, confidence):
-    pass
+    return {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "track_id": int(track_id),
+        "class_name": class_name,
+        "direction": direction,
+        "bbox": {
+            "x1": int(bbox[0]),
+            "y1": int(bbox[1]),
+            "x2": int(bbox[2]),
+            "y2": int(bbox[3]),
+        },
+        "confidence": round(float(confidence), 4),
+    }
 
 
 def _do_post(url, payload):

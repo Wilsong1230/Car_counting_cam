@@ -57,3 +57,20 @@ def test_check_crossing_updates_prev_cy():
     prev_cy = {1: 190.0}
     detector.check_crossing(prev_cy, 1, 210.0, 200.0)
     assert prev_cy[1] == 210.0
+
+
+def test_build_payload_structure():
+    payload = detector.build_payload(42, "car", "in", (10, 20, 30, 40), 0.87654)
+    assert payload["track_id"] == 42
+    assert payload["class_name"] == "car"
+    assert payload["direction"] == "in"
+    assert payload["bbox"] == {"x1": 10, "y1": 20, "x2": 30, "y2": 40}
+    assert payload["confidence"] == 0.8765
+    assert "timestamp" in payload
+
+
+def test_build_payload_coerces_types():
+    payload = detector.build_payload(1.0, "truck", "out", (0.9, 1.9, 2.9, 3.9), 0.9)
+    assert isinstance(payload["track_id"], int)
+    assert isinstance(payload["bbox"]["x1"], int)
+    assert isinstance(payload["confidence"], float)
