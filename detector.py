@@ -11,7 +11,12 @@ VEHICLE_CLASSES = {2: "car", 3: "motorcycle", 5: "bus", 7: "truck"}
 
 
 def parse_args(argv=None):
-    pass
+    p = argparse.ArgumentParser()
+    p.add_argument("--camera", type=int, default=0)
+    p.add_argument("--line-y", type=float, default=0.5, dest="line_y")
+    p.add_argument("--backend-url", type=str, default="http://localhost:8000/events", dest="backend_url")
+    p.add_argument("--show", action="store_true")
+    return p.parse_args(argv)
 
 
 def check_crossing(prev_cy, track_id, cy, line_y_px):
