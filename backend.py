@@ -1,6 +1,7 @@
 import argparse
 import sqlite3
 from datetime import datetime, timezone
+from typing import Literal
 
 import uvicorn
 from fastapi import Depends, FastAPI
@@ -8,7 +9,7 @@ from pydantic import BaseModel
 
 app = FastAPI()
 
-_conn: sqlite3.Connection | None = None
+_conn = None
 
 
 def init_db(db_path: str) -> sqlite3.Connection:
@@ -57,13 +58,14 @@ class EventPayload(BaseModel):
     timestamp: str
     track_id: int
     class_name: str
-    direction: str
+    direction: Literal["in", "out"]
     bbox: BBox
     confidence: float
 
 
 @app.post("/events", status_code=201)
 def post_event(payload: EventPayload, db: sqlite3.Connection = Depends(get_db)):
+    ts = datetime.fromisoformat(payload.timestamp).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     cursor = db.execute(
         """
         INSERT INTO crossings
@@ -72,7 +74,7 @@ def post_event(payload: EventPayload, db: sqlite3.Connection = Depends(get_db)):
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
-            payload.timestamp,
+            ts,
             payload.track_id,
             payload.class_name,
             payload.direction,
@@ -164,5 +166,5 @@ def counts_breakdown(db: sqlite3.Connection = Depends(get_db)):
 
 if __name__ == "__main__":
     args = parse_args()
-    globals()['_conn'] = init_db(args.db)
+    _conn = init_db(args.db)
     uvicorn.run(app, host=args.host, port=args.port)

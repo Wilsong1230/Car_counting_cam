@@ -71,6 +71,12 @@ def test_post_event_missing_field_returns_422(client):
     assert resp.status_code == 422
 
 
+def test_post_event_invalid_direction_returns_422(client):
+    bad = {**VALID_PAYLOAD, "direction": "sideways"}
+    resp = client.post("/events", json=bad)
+    assert resp.status_code == 422
+
+
 def test_counts_current_empty(client):
     resp = client.get("/counts/current")
     assert resp.status_code == 200
@@ -125,7 +131,7 @@ def test_counts_daily_groups_by_date(client):
     assert data["2026-05-19"]["in"] == 1
 
 
-def test_counts_daily_respects_days_filter(client, mem_conn):
+def test_counts_daily_respects_days_filter(client):
     old = {**VALID_PAYLOAD, "timestamp": "2020-01-01T10:00:00.000000+00:00"}
     recent = {**VALID_PAYLOAD, "timestamp": "2026-05-19T10:00:00.000000+00:00"}
     client.post("/events", json=old)
