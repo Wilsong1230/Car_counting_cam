@@ -5,13 +5,21 @@ from typing import Literal
 
 import uvicorn
 from fastapi import Depends, FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
 
 _conn = None
 
-
+# initializes data base and creates table if it doesn't exist. table includes:
+# id, timestamp, track_id, class_name, direction, confidence, and bounding box coordinates.
 def init_db(db_path: str) -> sqlite3.Connection:
     conn = sqlite3.connect(db_path, check_same_thread=False)
     conn.row_factory = sqlite3.Row
@@ -35,10 +43,12 @@ def init_db(db_path: str) -> sqlite3.Connection:
     return conn
 
 
+# dependency to get db connection for each request
 def get_db():
     yield _conn
 
 
+# command line argument parser
 def parse_args(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--host", type=str, default="0.0.0.0")
@@ -47,13 +57,14 @@ def parse_args(argv=None):
     return parser.parse_args(argv)
 
 
+# pydantic models for request validation
 class BBox(BaseModel):
     x1: int
     y1: int
     x2: int
     y2: int
 
-
+# payload model for events
 class EventPayload(BaseModel):
     timestamp: str
     track_id: int
@@ -63,6 +74,7 @@ class EventPayload(BaseModel):
     confidence: float
 
 
+# endpoint to receive events from detector
 @app.post("/events", status_code=201)
 def post_event(payload: EventPayload, db: sqlite3.Connection = Depends(get_db)):
     ts = datetime.fromisoformat(payload.timestamp).astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -88,7 +100,7 @@ def post_event(payload: EventPayload, db: sqlite3.Connection = Depends(get_db)):
     db.commit()
     return {"id": cursor.lastrowid}
 
-
+# endpoint to get current counts
 @app.get("/counts/current")
 def counts_current(db: sqlite3.Connection = Depends(get_db)):
     rows = db.execute(
@@ -100,6 +112,7 @@ def counts_current(db: sqlite3.Connection = Depends(get_db)):
     return totals
 
 
+# endpoint to get hourly counts 
 @app.get("/counts/hourly")
 def counts_hourly(date: str | None = None, db: sqlite3.Connection = Depends(get_db)):
     if date is None:
@@ -124,7 +137,7 @@ def counts_hourly(date: str | None = None, db: sqlite3.Connection = Depends(get_
         by_hour[h][row["direction"]] = row["cnt"]
     return list(by_hour.values())
 
-
+# endpoint to get daily counts
 @app.get("/counts/daily")
 def counts_daily(days: int = 7, db: sqlite3.Connection = Depends(get_db)):
     rows = db.execute(
@@ -148,6 +161,7 @@ def counts_daily(days: int = 7, db: sqlite3.Connection = Depends(get_db)):
     return list(by_day.values())
 
 
+# endpoint to get breakdown of counts by class and direction
 @app.get("/counts/breakdown")
 def counts_breakdown(db: sqlite3.Connection = Depends(get_db)):
     rows = db.execute(
@@ -161,6 +175,34 @@ def counts_breakdown(db: sqlite3.Connection = Depends(get_db)):
     return [
         {"class_name": r["class_name"], "direction": r["direction"], "count": r["count"]}
         for r in rows
+    ]
+
+
+@app.get("/counts/hourly/breakdown")
+def counts_hourly_breakdown(date: str | None = None, db: sqlite3.Connection = Depends(get_db)):
+    if date is None:
+        date = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    rows = db.execute(
+        """
+        SELECT strftime('%Y-%m-%dT%H:00:00Z', timestamp) as hour,
+               class_name,
+               COUNT(*) as cnt
+        FROM crossings
+        WHERE date(timestamp) = ?
+        GROUP BY hour, class_name
+        ORDER BY class_name, hour
+        """,
+        (date,),
+    ).fetchall()
+    by_class: dict = {}
+    for row in rows:
+        cls = row["class_name"]
+        if cls not in by_class:
+            by_class[cls] = {}
+        by_class[cls][row["hour"]] = row["cnt"]
+    return [
+        {"class_name": cls, "hourly": data}
+        for cls, data in sorted(by_class.items())
     ]
 
 
