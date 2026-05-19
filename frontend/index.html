@@ -463,6 +463,8 @@
 
     .badge-blue  { background: var(--primary-dim); color: var(--primary); }
     .badge-amber { background: var(--accent-dim);  color: var(--accent);  }
+    .badge-green { background: var(--green-dim);   color: var(--green);   }
+    .badge-red   { background: var(--red-dim);     color: var(--red);     }
 
     .chart-wrap {
       position: relative;
@@ -635,6 +637,46 @@
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
+    /* ── Live feed ───────────────────────────────────────────── */
+    .feed-wrap {
+      position: relative;
+      width: 100%;
+      border-radius: var(--radius-sm);
+      overflow: hidden;
+      background: #000;
+      min-height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    #live-feed {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: var(--radius-sm);
+    }
+
+    .feed-offline {
+      display: none;
+      position: absolute;
+      inset: 0;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      color: var(--muted);
+      font-size: .78rem;
+      font-family: var(--font-data);
+      background: var(--surface-2);
+      flex-direction: column;
+      text-align: center;
+      padding: 24px;
+    }
+
+    .feed-offline.visible {
+      display: flex;
+    }
+
     /* ── Side accent bars ────────────────────────────────────── */
     body::before, body::after {
       content: '';
@@ -739,6 +781,28 @@
         <span class="kpi-sub" aria-hidden="true">all time</span>
       </div>
     </section>
+
+    <!-- Live camera feed -->
+    <div class="chart-panel full">
+      <div class="panel-header">
+        <div>
+          <div class="panel-title">Live Feed</div>
+          <div class="panel-subtitle" id="feed-status">connecting...</div>
+        </div>
+        <span class="panel-badge badge-blue" id="feed-badge">MJPEG</span>
+      </div>
+      <div class="feed-wrap">
+        <img id="live-feed"
+             src="http://localhost:8000/feed"
+             alt="Live camera feed"
+             onload="feedOnline()"
+             onerror="feedOffline()" />
+        <div id="feed-offline" class="feed-offline" aria-live="polite">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.5 6.5A5 5 0 0 1 17.5 13.5"/><path d="M6.5 6.5A9 9 0 0 0 17.5 17.5"/><circle cx="12" cy="12" r="1"/></svg>
+          <span>Feed offline — start the detector to see the live view</span>
+        </div>
+      </div>
+    </div>
 
     <!-- Hourly In vs Out area chart (full width) -->
     <div class="chart-panel full">
@@ -1338,6 +1402,26 @@
       btn.classList.remove('spinning');
       btn.disabled = false;
     }
+  }
+
+  /* ── Live feed state ───────────────────────────────────────── */
+  function feedOnline() {
+    $('feed-offline').classList.remove('visible');
+    $('live-feed').style.display = 'block';
+    $('feed-status').textContent = 'Live';
+    $('feed-badge').textContent  = 'LIVE';
+    $('feed-badge').className    = 'panel-badge badge-green';
+  }
+
+  function feedOffline() {
+    $('feed-offline').classList.add('visible');
+    $('live-feed').style.display = 'none';
+    $('feed-status').textContent = 'Offline';
+    $('feed-badge').textContent  = 'OFFLINE';
+    $('feed-badge').className    = 'panel-badge badge-red';
+    setTimeout(() => {
+      $('live-feed').src = API + '/feed?' + Date.now();
+    }, 3000);
   }
 
   /* ── Boot ──────────────────────────────────────────────────── */

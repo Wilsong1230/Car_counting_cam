@@ -1,11 +1,13 @@
 import argparse
+import asyncio
 import sqlite3
 from datetime import datetime, timezone
 from typing import Literal
 
 import uvicorn
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 app = FastAPI()
@@ -17,6 +19,7 @@ app.add_middleware(
 )
 
 _conn = None
+_latest_frame: bytes | None = None
 
 # initializes data base and creates table if it doesn't exist. table includes:
 # id, timestamp, track_id, class_name, direction, confidence, and bounding box coordinates.
@@ -204,6 +207,28 @@ def counts_hourly_breakdown(date: str | None = None, db: sqlite3.Connection = De
         {"class_name": cls, "hourly": data}
         for cls, data in sorted(by_class.items())
     ]
+
+
+@app.post("/frame", status_code=204)
+async def post_frame(request: Request):
+    global _latest_frame
+    _latest_frame = await request.body()
+
+
+async def _mjpeg_generator():
+    while True:
+        frame = _latest_frame
+        if frame:
+            yield b"--frame\r\nContent-Type: image/jpeg\r\n\r\n" + frame + b"\r\n"
+        await asyncio.sleep(0.04)
+
+
+@app.get("/feed")
+async def live_feed():
+    return StreamingResponse(
+        _mjpeg_generator(),
+        media_type="multipart/x-mixed-replace; boundary=frame",
+    )
 
 
 if __name__ == "__main__":

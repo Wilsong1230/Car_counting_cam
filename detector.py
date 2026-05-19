@@ -68,6 +68,21 @@ def post_event(url, payload):
     t = threading.Thread(target=_do_post, args=(url, payload), daemon=True)
     t.start()
 
+
+def _do_post_frame(url, data):
+    try:
+        requests.post(url, data=data, headers={"Content-Type": "image/jpeg"}, timeout=1)
+    except Exception:
+        pass
+
+
+def post_frame(url, frame):
+    ok, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+    if not ok:
+        return
+    t = threading.Thread(target=_do_post_frame, args=(url, buf.tobytes()), daemon=True)
+    t.start()
+
 # main detection loop. Initializes model and video, conitinuosuly reads frames, runs detection and tracking, checks for crossing, builds payload, and posts
 # if --show is enabled, also draws line and bounding boxes in feed. 
 def run_detection(args):
@@ -83,6 +98,7 @@ def run_detection(args):
     line_y_px = int(args.line_y * h)
 
     prev_cy = {}
+    frame_url = args.backend_url.rsplit("/events", 1)[0] + "/frame"
 
     try:
         while True:
@@ -121,8 +137,10 @@ def run_detection(args):
                         cv2.putText(frame, label, (ix1 + 2, ly - baseline + 1),
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 0), 1, cv2.LINE_AA)
 
+            cv2.line(frame, (0, line_y_px), (w, line_y_px), (0, 255, 0), 2)
+            post_frame(frame_url, frame)
+
             if args.show:
-                cv2.line(frame, (0, line_y_px), (w, line_y_px), (0, 255, 0), 2)
                 cv2.imshow("detector", frame)
                 if cv2.waitKey(1) & 0xFF == ord("q"):
                     break
