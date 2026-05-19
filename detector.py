@@ -1,4 +1,5 @@
 import sys
+import time
 import argparse
 import threading
 from datetime import datetime, timezone
@@ -66,16 +67,20 @@ def run_detection(args):
     if not cap.isOpened():
         sys.exit(f"Error: cannot open camera {args.camera}")
 
+    ok, frame = cap.read()
+    if not ok:
+        sys.exit(f"Error: could not read first frame from camera {args.camera}")
+    h, w = frame.shape[:2]
+    line_y_px = int(args.line_y * h)
+
     prev_cy = {}
 
     try:
         while True:
             ok, frame = cap.read()
             if not ok:
+                time.sleep(0.01)
                 continue
-
-            h, w = frame.shape[:2]
-            line_y_px = int(args.line_y * h)
 
             results = model.track(frame, tracker="bytetrack.yaml", persist=True, verbose=False)
 
