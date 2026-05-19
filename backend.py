@@ -144,7 +144,18 @@ def counts_daily(days: int = 7, db: sqlite3.Connection = Depends(get_db)):
 
 @app.get("/counts/breakdown")
 def counts_breakdown(db: sqlite3.Connection = Depends(get_db)):
-    pass
+    rows = db.execute(
+        """
+        SELECT class_name, direction, COUNT(*) as count
+        FROM crossings
+        GROUP BY class_name, direction
+        ORDER BY class_name, direction
+        """
+    ).fetchall()
+    return [
+        {"class_name": r["class_name"], "direction": r["direction"], "count": r["count"]}
+        for r in rows
+    ]
 
 
 if __name__ == "__main__":

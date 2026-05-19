@@ -133,3 +133,25 @@ def test_counts_daily_respects_days_filter(client, mem_conn):
     resp = client.get("/counts/daily?days=7")
     dates = [item["date"] for item in resp.json()]
     assert "2020-01-01" not in dates
+
+
+def test_counts_breakdown_groups_by_class_and_direction(client):
+    car_in = {**VALID_PAYLOAD, "class_name": "car", "direction": "in"}
+    car_out = {**VALID_PAYLOAD, "class_name": "car", "direction": "out"}
+    truck_in = {**VALID_PAYLOAD, "class_name": "truck", "direction": "in"}
+    client.post("/events", json=car_in)
+    client.post("/events", json=car_in)
+    client.post("/events", json=car_out)
+    client.post("/events", json=truck_in)
+    resp = client.get("/counts/breakdown")
+    assert resp.status_code == 200
+    data = {(r["class_name"], r["direction"]): r["count"] for r in resp.json()}
+    assert data[("car", "in")] == 2
+    assert data[("car", "out")] == 1
+    assert data[("truck", "in")] == 1
+
+
+def test_counts_breakdown_empty(client):
+    resp = client.get("/counts/breakdown")
+    assert resp.status_code == 200
+    assert resp.json() == []
