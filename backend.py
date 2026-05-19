@@ -12,11 +12,30 @@ _conn: sqlite3.Connection | None = None
 
 
 def init_db(db_path: str) -> sqlite3.Connection:
-    pass
+    conn = sqlite3.connect(db_path, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS crossings (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp  TEXT    NOT NULL,
+            track_id   INTEGER NOT NULL,
+            class_name TEXT    NOT NULL,
+            direction  TEXT    NOT NULL,
+            confidence REAL    NOT NULL,
+            bbox_x1    INTEGER NOT NULL,
+            bbox_y1    INTEGER NOT NULL,
+            bbox_x2    INTEGER NOT NULL,
+            bbox_y2    INTEGER NOT NULL
+        )
+        """
+    )
+    conn.commit()
+    return conn
 
 
 def get_db():
-    pass
+    yield _conn
 
 
 def parse_args(argv=None):
