@@ -20,7 +20,15 @@ def parse_args(argv=None):
 
 
 def check_crossing(prev_cy, track_id, cy, line_y_px):
-    pass
+    result = None
+    if track_id in prev_cy:
+        prev = prev_cy[track_id]
+        if prev < line_y_px <= cy:
+            result = "in"
+        elif prev >= line_y_px > cy:
+            result = "out"
+    prev_cy[track_id] = cy
+    return result
 
 
 def build_payload(track_id, class_name, direction, bbox, confidence):
