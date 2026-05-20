@@ -2,6 +2,7 @@
 
 A real-time vehicle detection and counting system that uses your camera feed, a YOLO model, and a local dashboard to track how many vehicles cross a line — split by direction and class.
 
+![Dashboard Preview](./dashboard.png)
 ---
 
 ## What it does
